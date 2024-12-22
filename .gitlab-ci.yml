@@ -1,0 +1,84 @@
+image:
+  name: hashicorp/terraform
+  entrypoint: [""]
+
+cache:
+  paths:
+    - devops/terraform/.terraform
+    - devops/terraform/.terraform.lock.hcl
+
+variables:
+  IMAGE_NAME: $CI_REGISTRY_IMAGE
+  IMAGE_TAG: $CI_PIPELINE_IID
+
+stages:
+  - init
+  - validate
+  - apply
+  - build
+  - configure
+  - destroy
+
+init:
+  stage: init
+  script:
+    - cd devops/terraform
+    - terraform init
+
+validate:
+  stage: validate
+  script:
+    - cd devops/terraform
+    - terraform validate
+
+apply:
+  stage: apply
+  before_script:
+    - export AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
+    - export AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
+  script:
+    - cd devops/terraform
+    - terraform apply -var="public_key=$(echo $PUBLIC_KEY | base64 -d)" -auto-approve
+
+  artifacts:
+    paths:
+      - devops/ansible/hosts
+  when: manual
+
+build:
+  image: docker
+  services:
+    - docker:dind
+  stage: build
+  before_script:
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+  script:
+    - docker build -t $IMAGE_NAME:$IMAGE_TAG -f devops/docker/Dockerfile .
+    - docker push $IMAGE_NAME:$IMAGE_TAG
+
+ansible:
+  image:
+    name: alpinelinux/ansible
+    entrypoint: [""]
+  stage: configure
+  before_script:
+    - chmod o-w devops/ansible
+    - cd devops/ansible
+    - echo $PRIVATE_KEY | base64 -d > id_rsa
+    - chmod 600 id_rsa
+  script:
+    - ansible-playbook main.yaml --private-key id_rsa -i hosts -e "docker_username=$CI_REGISTRY_USER" -e "docker_password=$CI_REGISTRY_PASSWORD" -e "docker_registry=$CI_REGISTRY" -e "image_name=$IMAGE_NAME" -e "image_tag=$IMAGE_TAG"
+
+  needs:
+    - apply
+
+destroy:
+  stage: destroy
+  before_script:
+    - export AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
+    - export AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
+  script:
+    - cd devops/terraform
+    - terraform destroy -var="public_key=$(echo $PUBLIC_KEY | base64 -d)" -auto-approve
+
+  when: manual

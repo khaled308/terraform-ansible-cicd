@@ -1,0 +1,23 @@
+- name: Copy Docker Compose file
+  copy:
+    src: ../docker/docker-compose.yaml
+    dest: /home/{{ ansible_user }}/docker-compose.yaml
+
+- name: Login to Registry
+  shell: |
+    docker login -u {{ docker_username }} -p {{ docker_password }} {{ docker_registry }}
+
+- name: Set environment variables
+  shell: |
+    echo "IMAGE_NAME={{ image_name }}" >> /home/{{ ansible_user }}/.env
+    echo "IMAGE_TAG={{ image_tag }}" >> /home/{{ ansible_user }}/.env
+
+- name: Stop and remove existing containers using Docker Compose
+  shell: |
+    cd /home/{{ ansible_user }} && \
+    /usr/local/bin/docker-compose -f docker-compose.yaml down
+
+- name: Start containers using Docker Compose
+  shell: |
+    cd /home/{{ ansible_user }} && \
+    /usr/local/bin/docker-compose -f docker-compose.yaml up -d

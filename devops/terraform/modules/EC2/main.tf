@@ -4,6 +4,8 @@ resource "aws_instance" "ec2" {
   subnet_id                   = var.subnet_id
   security_groups             = [var.security_group_id]
   associate_public_ip_address = var.associate_public_ip_address
+
+  key_name = aws_key_pair.key_pair.key_name
 }
 
 resource "aws_key_pair" "key_pair" {

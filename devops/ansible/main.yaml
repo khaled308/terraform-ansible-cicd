@@ -2,3 +2,8 @@
   hosts: all
   roles:
     - docker
+
+- name: deploy
+  hosts: all
+  roles:
+    - deploy

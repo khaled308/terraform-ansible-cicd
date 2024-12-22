@@ -1,8 +1,14 @@
-- name: get docker compose binary
-  get_url:
-    url: https://github.com/docker/compose/releases/latest/download/docker-compose-linux-x86_64
-    dest: /usr/local/bin/docker-compose
-    mode: "0755"
+- name: Check if Docker Compose binary exists
+  stat:
+    path: /usr/local/bin/docker-compose
+  register: docker_compose_check
+
+- name: Get Docker Compose binary
+  shell: |
+    curl -L https://github.com/docker/compose/releases/download/1.23.2/docker-compose-$(uname -s)-$(uname -m) -o /usr/local/bin/docker-compose
+  when: not docker_compose_check.stat.exists
+  args:
+    creates: /usr/local/bin/docker-compose
 
 - name: Make Docker Compose executable
   file:
@@ -10,4 +16,4 @@
     mode: "0755"
 
 - name: Verify Docker Compose installation
-  command: docker-compose --version
+  command: /usr/local/bin/docker-compose --version

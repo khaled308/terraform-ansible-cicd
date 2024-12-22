@@ -1,5 +1,5 @@
 - name: Install docker
-  yum:
+  dnf:
     name: docker
     state: present
   when: ansible_os_family == 'RedHat'
